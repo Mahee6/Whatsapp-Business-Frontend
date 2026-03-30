@@ -1,0 +1,161 @@
+.analytics {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.page-header svg {
+  width: 28px;
+  height: 28px;
+  stroke: #128c7e;
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.analytics-section {
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #eee;
+}
+
+.analytics-section:last-child {
+  border-bottom: none;
+}
+
+.analytics-section h3 {
+  color: #075e54;
+  margin-bottom: 16px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filter-row input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.filter-row button {
+  background: #128c7e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.filter-row button:hover {
+  background: #075e54;
+}
+
+.filter-row button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #128c7e 0%, #25d366 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.details {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+.details h4 {
+  margin-top: 0;
+  color: #075e54;
+}
+
+.type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.type-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+}
+
+.type-name {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.type-count {
+  background: #25d366;
+  color: white;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.time-range {
+  margin-top: 16px;
+}
+
+.time-range p {
+  margin: 8px 0;
+}
+
+.data-display {
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.data-display pre {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}

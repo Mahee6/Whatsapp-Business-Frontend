@@ -14,6 +14,7 @@ function setSeen(seen) {
 function Conversations({ initialConvId = null }) {
   const [conversations, setConversations] = useState([]);
   const [unread, setUnread] = useState({});         // { convId: number }
+  const [contacts, setContacts] = useState([]);      // List of saved contacts
   const [selectedConv, setSelectedConv] = useState(initialConvId);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,7 +39,11 @@ function Conversations({ initialConvId = null }) {
 
   useEffect(() => {
     loadConversations();
-    const interval = setInterval(loadConversations, 15000);
+    loadContacts();
+    const interval = setInterval(() => {
+      loadConversations();
+      loadContacts();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -112,6 +117,18 @@ function Conversations({ initialConvId = null }) {
       }
       setUnread(newUnread);
     }
+  };
+  
+  const loadContacts = async () => {
+    const res = await api.listContacts();
+    if (res.success) setContacts(res.data.contacts || []);
+  };
+
+  const getDisplayName = (convId) => {
+    if (!convId) return '';
+    const phone = convId.replace('conv_', '');
+    const contact = contacts.find(c => c.phone_number === phone);
+    return contact ? contact.name : phone;
   };
 
   const loadMessages = async (convId) => {
@@ -238,6 +255,46 @@ function Conversations({ initialConvId = null }) {
     }
   };
 
+  const resolveMediaPath = (msg) => {
+    if (!msg.media_id) return null;
+    const ts = msg.timestamp;
+    const date = new Date(ts * 1000);
+    const datePrefix = `${date.getUTCFullYear()}/${(date.getUTCMonth() + 1).toString().padStart(2, '0')}/${date.getUTCDate().toString().padStart(2, '0')}`;
+    const mapping = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+      "video/mp4": "mp4", "audio/ogg": "ogg", "audio/mpeg": "mp3",
+      "application/pdf": "pdf", "text/plain": "txt"
+    };
+    const ext = mapping[msg.media_mime_type] || "bin";
+    return `${datePrefix}/${msg.conversation_id}/media/${msg.media_id}.${ext}`;
+  };
+
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedConv) return;
+
+    setSending(true);
+    const res = await api.uploadFile(file, `uploads/${selectedConv}`);
+    if (res.success) {
+      const filePath = res.data.path;
+      const mediaUrl = api.getMediaUrl(filePath);
+      const phoneNumber = selectedConv.replace('conv_', '');
+
+      if (file.type.startsWith('image/')) {
+        await api.sendImage(phoneNumber, mediaUrl);
+      } else {
+        await api.sendDocument(phoneNumber, mediaUrl, null, file.name);
+      }
+      loadMessages(selectedConv);
+    } else {
+      alert("Upload failed: " + res.error);
+    }
+    setSending(false);
+    e.target.value = ''; // Reset input
+  };
+
   return (
     <div className="conversations">
       <div className="conversations-layout">
@@ -266,10 +323,10 @@ function Conversations({ initialConvId = null }) {
                   className={`conversation-item ${selectedConv === conv.id ? 'active' : ''}`}
                   onClick={() => setSelectedConv(conv.id)}
                 >
-                  <div className="conv-avatar">{conv.id.replace('conv_', '').substring(0, 2)}</div>
+                  <div className="conv-avatar">{getDisplayName(conv.id).substring(0, 2).toUpperCase()}</div>
                   <div className="conv-info">
                     <div className="conv-header">
-                      <span className="conv-name">{conv.id.replace('conv_', '')}</span>
+                      <span className="conv-name">{getDisplayName(conv.id)}</span>
                       <span className="conv-time">{formatDate(conv.lastMessage / 1000)}</span>
                     </div>
                     <div className="conv-preview">
@@ -298,10 +355,12 @@ function Conversations({ initialConvId = null }) {
             <>
               <div className="chat-header">
                 <div className="chat-header-info">
-                  <div className="chat-avatar">{selectedConv.replace('conv_', '').substring(0, 2)}</div>
+                  <div className="chat-avatar">{getDisplayName(selectedConv).substring(0, 2).toUpperCase()}</div>
                   <div>
-                    <h3>{selectedConv.replace('conv_', '')}</h3>
-                    <span className="chat-status">{messages.length} messages</span>
+                    <h3>{getDisplayName(selectedConv)}</h3>
+                    {getDisplayName(selectedConv) !== selectedConv.replace('conv_', '') && (
+                      <div className="chat-sub-number">{selectedConv.replace('conv_', '')}</div>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => loadMessages(selectedConv)} className="btn-refresh-chat">
@@ -321,6 +380,8 @@ function Conversations({ initialConvId = null }) {
                       const showDate = index === 0 ||
                         formatDate(messages[index - 1].timestamp) !== formatDate(msg.timestamp);
                       const isDeleting = deletingId === msg.message_id;
+                      const mediaPath = resolveMediaPath(msg);
+                      const mediaUrl = mediaPath ? api.getMediaUrl(mediaPath) : msg.media_link;
 
                       return (
                         <div key={msg.message_id || index}>
@@ -334,38 +395,77 @@ function Conversations({ initialConvId = null }) {
                             <div className="message-content">
                               {msg.text_body && <div className="message-text">{msg.text_body}</div>}
 
-                              {msg.message_type === 'image' && msg.media_id && (
-                                <div className="message-media">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                                  </svg>
-                                  <span>Image</span>
+                              {msg.message_type === 'image' && (
+                                <div className="message-media-container">
+                                  {mediaUrl ? (
+                                    <div className="image-wrapper">
+                                      <img 
+                                        src={mediaUrl} 
+                                        alt="Media" 
+                                        className="chat-image"
+                                        onClick={() => window.open(mediaUrl, '_blank')}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="message-media">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                      </svg>
+                                      <span>Image</span>
+                                    </div>
+                                  )}
                                   {msg.caption && <div className="media-caption">{msg.caption}</div>}
                                 </div>
                               )}
                               {msg.message_type === 'video' && (
-                                <div className="message-media">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                                  </svg>
-                                  <span>Video</span>
+                                <div className="message-media-container">
+                                  {mediaUrl ? (
+                                    <div className="video-wrapper">
+                                      <video controls className="chat-video">
+                                        <source src={mediaUrl} />
+                                        Your browser does not support the video tag.
+                                      </video>
+                                    </div>
+                                  ) : (
+                                    <div className="message-media">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                      </svg>
+                                      <span>Video</span>
+                                    </div>
+                                  )}
                                   {msg.caption && <div className="media-caption">{msg.caption}</div>}
                                 </div>
                               )}
                               {msg.message_type === 'audio' && (
                                 <div className="message-media">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm12-2c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
-                                  </svg>
-                                  <span>Audio</span>
+                                  {mediaUrl ? (
+                                    <audio controls className="chat-audio">
+                                      <source src={mediaUrl} />
+                                    </audio>
+                                  ) : (
+                                    <>
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm12-2c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
+                                      </svg>
+                                      <span>Audio</span>
+                                    </>
+                                  )}
                                 </div>
                               )}
                               {msg.message_type === 'document' && (
-                                <div className="message-media">
+                                <div className="message-media document">
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/>
                                   </svg>
-                                  <span>Document</span>
+                                  <div className="doc-info">
+                                    <span className="doc-name">{msg.filename || 'Document'}</span>
+                                    {mediaUrl && (
+                                      <a href={mediaUrl} target="_blank" rel="noreferrer" className="btn-download">
+                                        Download
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                               {msg.message_type === 'location' && msg.location && (
@@ -375,6 +475,24 @@ function Conversations({ initialConvId = null }) {
                                   </svg>
                                   <span>Location</span>
                                   {msg.location.name && <div>{msg.location.name}</div>}
+                                </div>
+                              )}
+                              
+                              {msg.message_type === 'sticker' && (
+                                <div className="message-media-container sticker">
+                                  {mediaUrl ? (
+                                    <img src={mediaUrl} alt="Sticker" className="chat-sticker" />
+                                  ) : (
+                                    <div className="message-media">
+                                      <span>Sticker</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {msg.message_type === 'reaction' && msg.reaction && (
+                                <div className="message-reaction">
+                                  <span className="reaction-emoji">{msg.reaction.emoji}</span>
                                 </div>
                               )}
 
@@ -407,6 +525,23 @@ function Conversations({ initialConvId = null }) {
               </div>
 
               <form className="message-input-area" onSubmit={sendMessage}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileSelect}
+                />
+                <button 
+                  type="button" 
+                  className="btn-attach" 
+                  onClick={() => fileInputRef.current.click()}
+                  disabled={sending}
+                  title="Attach file"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </button>
                 <input
                   type="text"
                   value={messageText}

@@ -238,6 +238,12 @@
   opacity: 0.8;
 }
 
+.chat-sub-number {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
 .btn-refresh-chat {
   background: rgba(255, 255, 255, 0.2);
   border: none;
@@ -346,6 +352,54 @@
   gap: 8px;
 }
 
+.message-media-container {
+  margin-bottom: 4px;
+}
+
+.image-wrapper {
+  border-radius: 4px;
+  overflow: hidden;
+  max-height: 300px;
+  display: flex;
+  justify-content: center;
+  background: #f0f0f0;
+  cursor: pointer;
+}
+
+.chat-image {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.message-media.document {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+}
+
+.doc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doc-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.btn-download {
+  font-size: 12px;
+  color: #075e54;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.btn-download:hover {
+  text-decoration: underline;
+}
+
 .message-media svg {
   width: 20px;
   height: 20px;
@@ -427,6 +481,15 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.message-input-area .btn-attach {
+  background: none;
+  color: #54656f;
+}
+
+.message-input-area .btn-attach:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .message-input-area button svg {

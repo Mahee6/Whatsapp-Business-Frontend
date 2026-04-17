@@ -183,6 +183,29 @@ class WhatsAppAPI {
   async getUserAnalytics(phoneNumber) {
     return this.request(`/analytics/user/${phoneNumber}`);
   }
+
+  async uploadFile(file, prefix = 'uploads') {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = `${this.baseURL}/blobs/upload?prefix=${encodeURIComponent(prefix)}`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Upload failed');
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  getMediaUrl(path) {
+    if (!path) return '';
+    return `${this.baseURL}/blobs/content?path=${encodeURIComponent(path)}`;
+  }
 }
 
 export default new WhatsAppAPI();

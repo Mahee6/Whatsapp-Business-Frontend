@@ -1,14 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import './SendMessage.css';
 
 function SendMessage({ initialPhone = '' }) {
   const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [messageType, setMessageType] = useState('text');
+  const [contacts, setContacts] = useState([]);
 
   useEffect(() => {
     if (initialPhone) setPhoneNumber(initialPhone);
+    loadContacts();
   }, [initialPhone]);
+  
+  const loadContacts = async () => {
+    const res = await api.listContacts();
+    if (res.success) setContacts(res.data.contacts || []);
+  };
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -31,6 +38,28 @@ function SendMessage({ initialPhone = '' }) {
 
   const [templateName, setTemplateName] = useState('');
   const [languageCode, setLanguageCode] = useState('en_US');
+  
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const res = await api.uploadFile(file, `uploads/conv_${phoneNumber || 'manual'}`);
+    if (res.success) {
+      const mediaUrl = api.getMediaUrl(res.data.path);
+      setMediaLink(mediaUrl);
+      if (messageType === 'document' && !filename) {
+        setFilename(file.name);
+      }
+    } else {
+      alert("Upload failed: " + res.error);
+    }
+    setUploading(false);
+    e.target.value = ''; // Reset
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -117,13 +146,23 @@ function SendMessage({ initialPhone = '' }) {
       <form onSubmit={handleSend}>
         <div className="form-group">
           <label>Phone Number (with country code)</label>
-          <input
-            type="text"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="Mob No"
-            required
-          />
+          <div className="input-with-label">
+            <input
+              type="text"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="Mob No"
+              required
+            />
+            {contacts.find(c => c.phone_number === phoneNumber) && (
+              <span className="contact-name-hint">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                {contacts.find(c => c.phone_number === phoneNumber).name}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="form-group">
@@ -169,12 +208,33 @@ function SendMessage({ initialPhone = '' }) {
           <>
             <div className="form-group">
               <label>Media URL</label>
+              <div className="input-with-button">
+                <input
+                  type="url"
+                  value={mediaLink}
+                  onChange={(e) => setMediaLink(e.target.value)}
+                  placeholder="https://example.com/media.jpg"
+                  required
+                />
+                <button 
+                  type="button" 
+                  className="btn-upload" 
+                  onClick={() => fileInputRef.current.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? '...' : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                  )}
+                  Upload
+                </button>
+              </div>
               <input
-                type="url"
-                value={mediaLink}
-                onChange={(e) => setMediaLink(e.target.value)}
-                placeholder="https://example.com/media.jpg"
-                required
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
               />
             </div>
             {messageType !== 'audio' && (

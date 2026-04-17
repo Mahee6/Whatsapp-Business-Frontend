@@ -3,10 +3,13 @@ import SendMessage from './components/SendMessage';
 import Storage from './components/Storage';
 import Conversations from './components/Conversations';
 import Contacts from './components/Contacts';
+import Login from './components/Login';
+import { useAuth } from './contexts/AuthContext';
 import api from './services/api';
 import './App.css';
 
 function App() {
+  const { currentUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('conversations');
   const [serverStatus, setServerStatus] = useState('checking');
   const [sendTo, setSendTo] = useState('');
@@ -24,13 +27,19 @@ function App() {
   };
 
   useEffect(() => {
-    checkServerHealth();
-  }, []);
+    if (currentUser) {
+      checkServerHealth();
+    }
+  }, [currentUser]);
 
   const checkServerHealth = async () => {
     const response = await api.checkHealth();
     setServerStatus(response.success ? 'online' : 'offline');
   };
+
+  if (!currentUser) {
+    return <Login />;
+  }
 
   return (
     <div className="app">
@@ -42,16 +51,27 @@ function App() {
             </svg>
             <h1>WhatsApp Business</h1>
           </div>
-          <div className="server-status">
-            <span className={`status-indicator ${serverStatus}`}></span>
-            <span className="status-text">
-              Server: {serverStatus === 'online' ? 'Online' : serverStatus === 'offline' ? 'Offline' : 'Checking...'}
-            </span>
-            <button onClick={checkServerHealth} className="btn-refresh" title="Refresh">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
-              </svg>
-            </button>
+          
+          <div className="header-actions">
+            <div className="server-status">
+              <span className={`status-indicator ${serverStatus}`}></span>
+              <span className="status-text">
+                Server: {serverStatus === 'online' ? 'Online' : serverStatus === 'offline' ? 'Offline' : 'Checking...'}
+              </span>
+              <button onClick={checkServerHealth} className="btn-refresh" title="Refresh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="user-profile">
+              <img src={currentUser.photoURL} alt={currentUser.displayName} className="user-avatar" />
+              <div className="user-info">
+                <span className="user-name">{currentUser.displayName}</span>
+                <button onClick={logout} className="btn-logout">Logout</button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
